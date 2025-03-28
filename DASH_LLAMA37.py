@@ -21,7 +21,7 @@ response_queue = queue.Queue()
 streaming_done = False  # Flag to check completion of streaming
 
 # Available models
-available_models = ["llama3", "llama3.1", "llama3.2"]
+available_models = ["llama3", "llama3.1", "llama3.2","gemma3:1b" ]
 
 
 
@@ -58,7 +58,7 @@ def ask_dataframe2(question, df,model_name):
     )
     query = prompt_template.format(question=question, dataframe=df.to_string())
     rv = llm(query)
-    print(f"rv = {rv}")
+    # print(f"rv = {rv}")
     return rv 
 
 def ask_dataframe(question, df, model_name):
@@ -71,24 +71,28 @@ def ask_dataframe(question, df, model_name):
         You are a data visualization expert. Given the following DataFrame:
         {dataframe}
 
-        Identify **up to seven** relevant Plotly chart types to answer this question.
+        Identify **up to seven** relevant Plotly chart types to best answer this question:
+        "{question}"
+
         Choose from: 'bar', 'line', 'scatter', 'pie', 'histogram', 'box', 'heatmap'.
 
-        Suggest the best x-axis and y-axis columns (or category for pie charts) for each.
+        - Select appropriate columns for the x-axis and y-axis (or category for pie charts).
+        - Ensure the selections are meaningful based on the data types and question.
 
         Respond in **strict JSON format only**, with no additional text:
         [
-            {{"chart_type": "bar", "x": "Region", "y": "Sales"}},
-            {{"chart_type": "pie", "x": "Category", "y": "Profit"}}
+            {{"chart_type": "bar", "x": "<column_name>", "y": "<column_name>" }},
+            {{"chart_type": "pie", "x": "<column_name>", "y": "<column_name>" }}
         ]
         """
     )
+
 
     query = prompt_template.format(question=question, dataframe=df.head().to_string())
     response = llm(query)
 
     # Debugging: Print raw response
-    print("Raw response:", response)
+    # print("Raw response:", response)
 
     try:
         import re
@@ -99,69 +103,70 @@ def ask_dataframe(question, df, model_name):
         chart_info_list = json.loads(response)  # Convert JSON string to Python list
 
     except json.JSONDecodeError as e:
-        print("Error parsing JSON:", e)
+        # print("Error parsing JSON:", e)
         return []
+    # from pprint import pprint
+    # pprint(chart_info_list)
 
     figures = []
     for chart_info in chart_info_list:
         chart_type = chart_info.get("chart_type", "").strip().lower()
         x_col = chart_info.get("x", None)
         y_col = chart_info.get("y", None)
-        import re
+        # import re
 
-        def extract_valid_column(column_name, df):
-            import re
+        # def extract_valid_column(column_name, df):
+            # import re
             # What is the correlation between petal length and sepal width?
-            """Extract valid column names from LLM response."""
-            match = re.findall(r'\b\w+\b', column_name)  # Extract individual words
-            valid_columns = [col for col in match if col in df.columns]  # Keep only valid columns
+            # match = re.findall(r'\b\w+\b', column_name)  # Extract individual words
+            # valid_columns = [col for col in match if col in df.columns]  # Keep only valid columns
             # return valid_columns[0] if valid_columns else df.columns[0]  # Return first valid column or fallback
-            return valid_columns
-        y_cols = extract_valid_column(y_col, df)
-        x_cols = extract_valid_column(x_col, df)
-        print(f"x_cols={x_cols}")
-        print(f"y_cols={y_cols}")
+            # return valid_columns
+        # y_cols = extract_valid_column(y_col, df)
+        # x_cols = extract_valid_column(x_col, df)
+        # print(f"x_cols={x_cols}")
+        # print(f"y_cols={y_cols}")
 
-        for y_col in y_cols:
-            for x_col in x_cols:
+        # for y_col in y_cols:
+            # for x_col in x_cols:
+        fig = None
+        if chart_type == "bar":
+            try:
+                fig = px.bar(df, x=x_col, y=y_col, title=f"{question} - {chart_type}")
+            except:
                 fig = None
-                if chart_type == "bar":
-                    try:
-                        fig = px.bar(df, x=x_col, y=y_col, title=f"{question} - {chart_type}")
-                    except:
-                        fig = None
-                elif chart_type == "line":
-                    try:
-                        fig = px.line(df, x=x_col, y=y_col, title=f"{question} - {chart_type}")
-                    except:
-                        fig = None
-                elif chart_type == "scatter":
-                    try:
-                        fig = px.scatter(df, x=x_col, y=y_col, title=f"{question} - {chart_type}")
-                    except:
-                        fig = None
-                elif chart_type == "pie":
-                    try:
-                        fig = px.pie(df, names=x_col, values=y_col, title=f"{question} - {chart_type}")
-                    except:
-                        fig = None
-                elif chart_type == "histogram":
-                    try:
-                        fig = px.histogram(df, x=x_col, title=f"{question} - {chart_type}")
-                    except:
-                        fig = None
-                elif chart_type == "box":
-                    try:
-                        fig = px.box(df, y=y_col, title=f"{question} - {chart_type}")
-                    except:
-                        fig = None
-                elif chart_type == "heatmap":
-                    try:
-                        fig = px.imshow(df.corr(), title=f"{question} - {chart_type}")
-                    except:
-                        fig = None
-                if fig:
-                    figures.append(fig)
+        elif chart_type == "line":
+            try:
+                fig = px.line(df, x=x_col, y=y_col, title=f"{question} - {chart_type}")
+            except:
+                fig = None
+        elif chart_type == "scatter":
+            try:
+                fig = px.scatter(df, x=x_col, y=y_col, title=f"{question} - {chart_type}")
+            except:
+                fig = None
+        elif chart_type == "pie":
+            try:
+                fig = px.pie(df, names=x_col, values=y_col, title=f"{question} - {chart_type}")
+            except:
+                fig = None
+        elif chart_type == "histogram":
+            try:
+                fig = px.histogram(df, x=x_col, title=f"{question} - {chart_type}")
+            except:
+                fig = None
+        elif chart_type == "box":
+            try:
+                fig = px.box(df, y=y_col, title=f"{question} - {chart_type}")
+            except:
+                fig = None
+        elif chart_type == "heatmap":
+            try:
+                fig = px.imshow(df.corr(), title=f"{question} - {chart_type}")
+            except:
+                fig = None
+        if fig:
+            figures.append(fig)
 
     return figures
 
@@ -175,13 +180,13 @@ app.layout = dmc.MantineProvider([
             children=html.Button('Upload CSV', className='btn btn-info mb-2'),
             multiple=False
         ),
-        html.Button('Clear File', id='clear-file', className='btn btn-warning mb-2'),
+        html.Button('Clear File', id='clear-file', className='btn btn-warning mb-2',style={'display':'None'}),
         dcc.Store(id='stored-data', data=None),  # Store DataFrame in memory
         
         dcc.Dropdown(
             id='model-dropdown',
             options=[{'label': model, 'value': model} for model in available_models],
-            value='llama3',
+            value="gemma3:1b",
             clearable=False
         ),
         dcc.Textarea(id='user-input', placeholder='Type your message here...', style={'width': '100%', 'height': '100px'}),
@@ -212,7 +217,7 @@ def store_uploaded_data(contents):
 
 @app.callback(
     [Output('stored-data', 'data', allow_duplicate=True),
-    Output('upload-data', 'contents')],
+    Output('upload-data', 'contents', allow_duplicate=True)],
     [Input('clear-file', 'n_clicks'),
     Input('upload-data', 'contents')],
     prevent_initial_call=True
@@ -231,7 +236,8 @@ def clear_file(n_clicks,contents):
     [Output('chat-history', 'children'),
      Output('chat-history2', 'data'),
      Output("stream-interval", "disabled"),
-     Output('data-charts', 'children')],  # Update multiple charts
+     Output('data-charts', 'children'),
+     Output('upload-data', 'contents')],  # Update multiple charts
     [Input('send-button', 'n_clicks'),
      Input('clear-button', 'n_clicks'),
      Input("stream-interval", "n_intervals")],
@@ -240,9 +246,10 @@ def clear_file(n_clicks,contents):
      State('chat-history2', 'data'),
      State('model-dropdown', 'value'),
      State('stored-data', 'data'),
-     State('data-charts', 'children')]  # Preserve previous charts
+     State('data-charts', 'children'),
+     State('upload-data', 'contents')]  # Preserve previous charts
 )
-def update_chat(n_clicks, clear_clicks, n_intervals, user_message, chat_history, chat_history2, model_name, stored_data, prev_charts):
+def update_chat(n_clicks, clear_clicks, n_intervals, user_message, chat_history, chat_history2, model_name, stored_data, prev_charts,contents):
     global streaming_done
     
     triggered_id = ctx.triggered_id
@@ -251,7 +258,7 @@ def update_chat(n_clicks, clear_clicks, n_intervals, user_message, chat_history,
     if triggered_id == "clear-button" and clear_clicks > 0:
         while not response_queue.empty():
             response_queue.get()
-        return [], [{'role': 'system', 'content': 'Hi!'}], True, []  # Clear charts
+        return [], [{'role': 'system', 'content': 'Hi!'}], True, [],None  # Clear charts
 
     # Handle new user message
     if triggered_id == "send-button" and n_clicks > 0 and user_message:
@@ -273,7 +280,7 @@ def update_chat(n_clicks, clear_clicks, n_intervals, user_message, chat_history,
             prev_charts = prev_charts if prev_charts is not None else []
             charts = new_graphs + prev_charts  # Append new charts instead of replacing
 
-        return chat_history, chat_history2, False, charts  # Keep streaming enabled
+        return chat_history, chat_history2, False, charts,contents  # Keep streaming enabled
 
     # Handle streaming updates
     if triggered_id == "stream-interval":
@@ -284,14 +291,21 @@ def update_chat(n_clicks, clear_clicks, n_intervals, user_message, chat_history,
         if new_content:
             chat_history2[-1]["content"] += new_content  # Append to last assistant message
 
-        chat_history_display = [
-            dmc.Alert(msg["content"], title=msg["role"].capitalize(), color="violet" if msg["role"] == "user" else "blue")
-            for msg in chat_history2
-        ]
+        # chat_history_display = [
+        #     dmc.Alert(msg["content"], title=msg["role"].capitalize(), color="violet" if msg["role"] == "user" else "blue")
+        #     for msg in chat_history2
+        # ]
+        chat_history_display = []
+        for msg in chat_history2:
+            if msg["role"] == "assistant":
+            # if "```" in msg["content"]:  # Check if it's a code block
+                chat_history_display.append(dcc.Markdown(msg["content"], style={"white-space": "pre-wrap"}))
+            else:
+                chat_history_display.append(dmc.Alert(msg["content"], title=msg["role"].capitalize(), color="blue"))
 
-        return chat_history_display, chat_history2, streaming_done, prev_charts  # Preserve charts
+        return chat_history_display, chat_history2, streaming_done, prev_charts,contents  # Preserve charts
 
-    return chat_history, chat_history2, True, prev_charts  # Preserve charts on no update
+    return chat_history, chat_history2, True, prev_charts,contents  # Preserve charts on no update
 
 
 
