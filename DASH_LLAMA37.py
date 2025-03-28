@@ -172,34 +172,63 @@ def ask_dataframe(question, df, model_name):
 
 
 # Layout
-app.layout = dmc.MantineProvider([
-    dbc.Container([
-        html.H2("ENIQ Chatbot"),
-        dcc.Upload(
-            id='upload-data',
-            children=html.Button('Upload CSV', className='btn btn-info mb-2'),
-            multiple=False
-        ),
-        html.Button('Clear File', id='clear-file', className='btn btn-warning mb-2',style={'display':'None'}),
-        dcc.Store(id='stored-data', data=None),  # Store DataFrame in memory
-        
-        dcc.Dropdown(
-            id='model-dropdown',
-            options=[{'label': model, 'value': model} for model in available_models],
-            value="gemma3:1b",
-            clearable=False
-        ),
-        dcc.Textarea(id='user-input', placeholder='Type your message here...', style={'width': '100%', 'height': '100px'}),
-        dbc.Row([
-            dbc.Col(html.Button('Send', id='send-button', n_clicks=0, className='btn btn-primary mt-2'), width=6),
-            dbc.Col(html.Button('Clear Chat', id='clear-button', n_clicks=0, className='btn btn-danger mt-2'), width=6),
-        ]),
-        html.Div(id='chat-history', children=[], style={'marginTop': '20px'}),
-        html.Div(id='data-charts'),
-        dcc.Store(id='chat-history2', data=[{'role': 'system', 'content': 'Hi!'}]),
-        dcc.Interval(id="stream-interval", interval=500, n_intervals=0, disabled=True),
-    ])
-])
+app.layout = dmc.MantineProvider(
+    theme={
+        "colorScheme": "light",  # Ensure light mode is applied
+    },
+    children=[
+        html.Div(
+            style={
+                "backgroundImage": "url('/assets/e.webp')",
+                "backgroundSize": "cover",
+                "backgroundPosition": "center",
+                "height": "100%",  # Ensure it covers the full page
+                "width": "100%",
+                "display": "flex",
+                "flexDirection": "column",
+                "alignItems": "center",
+                "justifyContent": "center",
+                "padding": "20px",
+            },
+            children=[
+                dbc.Container([
+                    html.H2("ENIQ Chatbot"),
+                    dcc.Upload(
+                        id='upload-data',
+                        children=html.Button('Upload CSV', className='btn btn-primary mb-2'),
+                        multiple=False
+                    ),
+                    html.Button('Clear File', id='clear-file', className='btn btn-warning mb-2', style={'display': 'None'}),
+                    dcc.Store(id='stored-data', data=None),
+                    dcc.Dropdown(
+                        id='model-dropdown',
+                        options=[{'label': model, 'value': model} for model in available_models],
+                        value="gemma3:1b",
+                        clearable=False,
+                    ),
+                    # dcc.Textarea(id='user-input', placeholder='Type your query here...', style={'width': '100%', 'height': '100px'}),
+                    dmc.Textarea(
+                        id='user-input',
+                        placeholder='Type your query here...',
+                        autosize=True,
+                        minRows=3,
+                        maxRows=6,
+                        style={'width': '100%'}
+                    ),
+                    dbc.Row([
+                        dbc.Col(html.Button('Send', id='send-button', n_clicks=0, className='btn btn-primary mt-2'), width=6),
+                        dbc.Col(html.Button('Clear Chat', id='clear-button', n_clicks=0, className='btn btn-secondary mt-2'), width=4),
+                    ]),
+                    html.Div(id='chat-history', children=[], style={'marginTop': '20px'}),
+                    html.Div(id='data-charts'),
+                    dcc.Store(id='chat-history2', data=[{'role': 'system', 'content': 'Hi!'}]),
+                    dcc.Interval(id="stream-interval", interval=500, n_intervals=0, disabled=True),
+                ], fluid=True, style={"backgroundColor": "rgba(255, 255, 255, 0.8)", "padding": "20px", "borderRadius": "10px"})
+            ]
+        )
+    ]
+)
+
 
 @app.callback(
     Output('stored-data', 'data'),
