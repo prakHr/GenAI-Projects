@@ -14,6 +14,8 @@ from langchain_community.llms import Ollama
 from langchain.prompts import PromptTemplate
 import re
 import pygwalker as pyg
+import os 
+os.environ["PYGWALKER_RENDER_MODE"] = "dash"
 # Initialize Dash app
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 
@@ -258,8 +260,11 @@ def update_chart(n_clicks,contents):
         content_type, content_string = contents.split(',')
         decoded = io.BytesIO(base64.b64decode(content_string))
         df = pd.read_csv(decoded)
-        pyg_html = pyg.walk(df, env="Notebook", return_html=True)
-        return html.Div(pyg_html)
+        pyg_html = pyg.walk(df, render_mode="dash", return_html=True)
+        return html.Div([
+            html.Iframe(srcDoc=pyg_html, width="100%", height="600px")
+        ])
+        # return html.Div(pyg_html)
     # print("reached here")
     return ""
 @app.callback(
@@ -334,7 +339,7 @@ def update_chat(n_clicks, clear_clicks, n_intervals, user_message, chat_history,
 
         if df is not None:
             answer = ask_dataframe2(user_message, df, model_name)
-            chat_history2[-1]['content'] += answer
+            chat_history2[-1]['content'] += f"\n Answer from uploaded dataset is :-{answer}\n"
             # new_figs = ask_dataframe(user_message, df, model_name)
             new_figs = []
             # Convert figures to dcc.Graph components
