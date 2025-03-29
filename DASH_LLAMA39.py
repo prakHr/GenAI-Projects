@@ -13,9 +13,11 @@ import base64
 from langchain_community.llms import Ollama
 from langchain.prompts import PromptTemplate
 import re
+import pygwalker as pyg
 # Initialize Dash app
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 
+# https://github.com/GeneralSubhra/Llama-3-with-PandasAI/blob/main/app.py
 # Queue for handling streamed messages
 response_queue = queue.Queue()
 streaming_done = False  # Flag to check completion of streaming
@@ -75,7 +77,7 @@ def ask_dataframe2(question, df,model_name):
 
 def ask_dataframe(question, df, model_name):
     yes_or_no = ask_normal_dataframe(question,df,model_name)
-    # print(f"yes_or_no = {yes_or_no}")
+    print(f"yes_or_no = {yes_or_no}")
     if 'no' in yes_or_no.lower():
         return []
 
@@ -105,7 +107,7 @@ def ask_dataframe(question, df, model_name):
     )
 
 
-    query = prompt_template.format(question=question, dataframe=df.head().to_string())
+    query = prompt_template.format(question=question, dataframe=df.to_string())
     response = llm.invoke(query)
 
     # Debugging: Print raw response
@@ -130,22 +132,7 @@ def ask_dataframe(question, df, model_name):
         chart_type = chart_info.get("chart_type", "").strip().lower()
         x_col = chart_info.get("x", None)
         y_col = chart_info.get("y", None)
-        # import re
 
-        # def extract_valid_column(column_name, df):
-            # import re
-            # What is the correlation between petal length and sepal width?
-            # match = re.findall(r'\b\w+\b', column_name)  # Extract individual words
-            # valid_columns = [col for col in match if col in df.columns]  # Keep only valid columns
-            # return valid_columns[0] if valid_columns else df.columns[0]  # Return first valid column or fallback
-            # return valid_columns
-        # y_cols = extract_valid_column(y_col, df)
-        # x_cols = extract_valid_column(x_col, df)
-        # print(f"x_cols={x_cols}")
-        # print(f"y_cols={y_cols}")
-
-        # for y_col in y_cols:
-            # for x_col in x_cols:
         fig = None
         if chart_type == "bar":
             try:
@@ -187,6 +174,12 @@ def ask_dataframe(question, df, model_name):
 
     return figures
 
+def generate_pygwalker_html(df):
+    # Use PyGWalker to generate visualization
+    pyg_html = pyg.walk(df, return_html=True)
+    return pyg_html
+
+
 
 # Layout
 app.layout = dmc.MantineProvider(
@@ -209,6 +202,10 @@ app.layout = dmc.MantineProvider(
             },
             children=[
                 dbc.Container([
+                    html.H1("Interactive Data Visualization with PyGWalker & Dash"),
+                    # dcc.Input(id="query-input", type="text", placeholder="Enter your question..."),
+                    html.Button("Generate Chart", id="generate-btn", n_clicks=0),
+                    html.Div(id="pygwalker-container"),
                     html.H2("ENIQ Chatbot"),
                     dcc.Upload(
                         id='upload-data',
@@ -246,7 +243,25 @@ app.layout = dmc.MantineProvider(
     ]
 )
 
-
+# Callback to Update PyGWalker Visualization
+@app.callback(
+    Output("pygwalker-container", "children"),
+   [ 
+    Input("generate-btn", "n_clicks"),
+    Input('upload-data', 'contents')],
+    prevent_initial_call=True
+)
+def update_chart(n_clicks,contents):
+    triggered_id = ctx.triggered_id
+    
+    if triggered_id == "generate-btn" and n_clicks>0 and contents is not None:
+        content_type, content_string = contents.split(',')
+        decoded = io.BytesIO(base64.b64decode(content_string))
+        df = pd.read_csv(decoded)
+        pyg_html = pyg.walk(df, env="Notebook", return_html=True)
+        return html.Div(pyg_html)
+        
+    return ""
 @app.callback(
     Output('stored-data', 'data'),
     Input('upload-data', 'contents'),
@@ -304,7 +319,8 @@ def update_chat(n_clicks, clear_clicks, n_intervals, user_message, chat_history,
     if triggered_id == "clear-button" and clear_clicks > 0:
         while not response_queue.empty():
             response_queue.get()
-        return [], [{'role': 'system', 'content': 'Hi!'}], True, [],None  # Clear charts
+        return chat_history, chat_history2, True, [],None
+        # return [], [{'role': 'system', 'content': 'Hi!'}], True, [],None  # Clear charts
 
     # Handle new user message
     if triggered_id == "send-button" and n_clicks > 0 and user_message:
@@ -319,8 +335,8 @@ def update_chat(n_clicks, clear_clicks, n_intervals, user_message, chat_history,
         if df is not None:
             answer = ask_dataframe2(user_message, df, model_name)
             chat_history2[-1]['content'] += answer
-            new_figs = ask_dataframe(user_message, df, model_name)
-
+            # new_figs = ask_dataframe(user_message, df, model_name)
+            new_figs = []
             # Convert figures to dcc.Graph components
             new_graphs = [dcc.Graph(figure=fig, style={'width': '45%', 'display': 'inline-block', 'margin': '10px'}) for fig in new_figs]
             prev_charts = prev_charts if prev_charts is not None else []
