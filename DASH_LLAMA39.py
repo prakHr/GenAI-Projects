@@ -253,14 +253,14 @@ app.layout = dmc.MantineProvider(
 )
 def update_chart(n_clicks,contents):
     triggered_id = ctx.triggered_id
-    
+    # print(f"triggered_id={triggered_id} and n_clicks = {n_clicks}")
     if triggered_id == "generate-btn" and n_clicks>0 and contents is not None:
         content_type, content_string = contents.split(',')
         decoded = io.BytesIO(base64.b64decode(content_string))
         df = pd.read_csv(decoded)
         pyg_html = pyg.walk(df, env="Notebook", return_html=True)
         return html.Div(pyg_html)
-        
+    # print("reached here")
     return ""
 @app.callback(
     Output('stored-data', 'data'),
@@ -276,22 +276,22 @@ def store_uploaded_data(contents):
         return df.to_json()  # Store as JSON
     return None
 
-@app.callback(
-    [Output('stored-data', 'data', allow_duplicate=True),
-    Output('upload-data', 'contents', allow_duplicate=True)],
-    [Input('clear-file', 'n_clicks'),
-    Input('upload-data', 'contents')],
-    prevent_initial_call=True
-)
-def clear_file(n_clicks,contents):
-    triggered_id = ctx.triggered_id
+# @app.callback(
+#     [Output('stored-data', 'data', allow_duplicate=True),
+#     Output('upload-data', 'contents', allow_duplicate=True)],
+#     [Input('clear-file', 'n_clicks'),
+#     Input('upload-data', 'contents')],
+#     prevent_initial_call=True
+# )
+# def clear_file(n_clicks,contents):
+#     triggered_id = ctx.triggered_id
     
-    # if triggered_id == "clear-file" and n_clicks > 0:
-    # print("called here")
-    # print(f"contents = {contents}")
-    # print("*"*100)
-    return n_clicks,contents  # Clear stored data
-    # return None,None
+#     # if triggered_id == "clear-file" and n_clicks > 0:
+#     # print("called here")
+#     # print(f"contents = {contents}")
+#     # print("*"*100)
+#     return n_clicks,contents  # Clear stored data
+#     # return None,None
 
 @app.callback(
     [Output('chat-history', 'children'),
