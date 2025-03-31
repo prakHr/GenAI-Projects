@@ -167,6 +167,15 @@ app.layout = dmc.MantineProvider(
                     html.Div(id='data-charts'),
                     dcc.Store(id='chat-history2', data=[{'role': 'system', 'content': 'Hi!'}]),
                     dcc.Interval(id="stream-interval", interval=500, n_intervals=0, disabled=True),
+                    dbc.Toast(
+                        id="toast-message",
+                        header="Notification",
+                        duration=2000,  # Auto-dismiss after 2 seconds
+                        is_open=False,
+                        dismissable=True,
+                        icon="primary",
+                        style={"position": "fixed", "top": "10px", "right": "10px", "zIndex": 1000},
+                    ),
                 ], fluid=True, style={"backgroundColor": "rgba(255, 255, 255, 0.8)", "padding": "20px", "borderRadius": "10px"})
             ]
         )
@@ -194,7 +203,9 @@ def store_uploaded_data(contents):
      Output('chat-history2', 'data'),
      Output("stream-interval", "disabled"),
      Output('data-charts', 'children'),
-     Output('upload-data', 'contents')],  # Update multiple charts
+     Output('upload-data', 'contents'),
+     Output("toast-message", "children"),  # Toast message content
+     Output("toast-message", "is_open")],  # Update multiple charts
     [Input('send-button', 'n_clicks'),
      Input('clear-button', 'n_clicks'),
      Input('clear-chat-button', 'n_clicks'),
@@ -211,19 +222,27 @@ def update_chat(n_clicks, clear_clicks,clear_chat_clicks, n_intervals, user_mess
     global streaming_done
     
     triggered_id = ctx.triggered_id
+    toast_message = ""
+    toast_open = False
 
     # Handle clear chat
     if triggered_id == "clear-button" and clear_clicks > 0:
+        toast_message = "CSV File Cleared!"
+        toast_open = True
         while not response_queue.empty():
             response_queue.get()
-        return chat_history, chat_history2, True, [],None  # Clear charts, remove uploaded csv file but not previous chat
+        return chat_history, chat_history2, True, [],None, toast_message, toast_open  # Clear charts, remove uploaded csv file but not previous chat
     if triggered_id == "clear-chat-button" and clear_chat_clicks > 0:
+        toast_message = "Chat Cleared!"
+        toast_open = True
         while not response_queue.empty():
             response_queue.get()
-        return [], [{'role': 'system', 'content': 'Hi!'}], True, [],None  # Clear everything(prev chat and remove uploaded csv file)
+        return [], [{'role': 'system', 'content': 'Hi!'}], True, [],None , toast_message, toast_open # Clear everything(prev chat and remove uploaded csv file)
 
     # Handle new user message
     if triggered_id == "send-button" and n_clicks > 0 and user_message:
+        toast_message = "Message Sent!"
+        toast_open = True
         chat_history2.append({'role': 'user', 'content': user_message})
         chat_history2.append({'role': 'assistant', 'content': ""})  # Placeholder
 
@@ -242,7 +261,7 @@ def update_chat(n_clicks, clear_clicks,clear_chat_clicks, n_intervals, user_mess
             prev_charts = prev_charts if prev_charts is not None else []
             charts = new_graphs + prev_charts  # Append new charts instead of replacing
 
-        return chat_history, chat_history2, False, charts,contents  # Keep streaming enabled
+        return chat_history, chat_history2, False, charts,contents , toast_message, toast_open  # Keep streaming enabled
 
     # Handle streaming updates
     if triggered_id == "stream-interval":
@@ -265,9 +284,9 @@ def update_chat(n_clicks, clear_clicks,clear_chat_clicks, n_intervals, user_mess
             else:
                 chat_history_display.append(dmc.Alert(msg["content"], title=msg["role"].capitalize(), color="blue"))
 
-        return chat_history_display, chat_history2, streaming_done, prev_charts,contents  # Preserve charts
+        return chat_history_display, chat_history2, streaming_done, prev_charts,contents, toast_message, toast_open  # Preserve charts
 
-    return chat_history, chat_history2, True, prev_charts,contents  # Preserve charts on no update
+    return chat_history, chat_history2, True, prev_charts,contents , toast_message, toast_open # Preserve charts on no update
 
 
 
