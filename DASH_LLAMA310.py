@@ -23,7 +23,7 @@ response_queue = queue.Queue()
 streaming_done = False  # Flag to check completion of streaming
 
 # Available models
-available_models = ["llama3", "llama3.1", "llama3.2","gemma3:1b" ]
+available_models = ["gemma3:1b","llama3:8b","llama3", "llama3.1", "llama3.2" ]
 
 
 
@@ -160,7 +160,8 @@ app.layout = dmc.MantineProvider(
                     ),
                     dbc.Row([
                         dbc.Col(html.Button('Send', id='send-button', n_clicks=0, className='btn btn-primary mt-2'), width=6),
-                        dbc.Col(html.Button('Clear Chat', id='clear-button', n_clicks=0, className='btn btn-secondary mt-2'), width=4),
+                        dbc.Col(html.Button('Clear CSV File', id='clear-button', n_clicks=0, className='btn btn-secondary mt-2'), width=4),
+                        dbc.Col(html.Button('Clear Chat', id='clear-chat-button', n_clicks=0, className='btn btn-secondary mt-2'), width=2),
                     ]),
                     html.Div(id='chat-history', children=[], style={'marginTop': '20px'}),
                     html.Div(id='data-charts'),
@@ -196,6 +197,7 @@ def store_uploaded_data(contents):
      Output('upload-data', 'contents')],  # Update multiple charts
     [Input('send-button', 'n_clicks'),
      Input('clear-button', 'n_clicks'),
+     Input('clear-chat-button', 'n_clicks'),
      Input("stream-interval", "n_intervals")],
     [State('user-input', 'value'),
      State('chat-history', 'children'),
@@ -205,7 +207,7 @@ def store_uploaded_data(contents):
      State('data-charts', 'children'),
      State('upload-data', 'contents')]  # Preserve previous charts
 )
-def update_chat(n_clicks, clear_clicks, n_intervals, user_message, chat_history, chat_history2, model_name, stored_data, prev_charts,contents):
+def update_chat(n_clicks, clear_clicks,clear_chat_clicks, n_intervals, user_message, chat_history, chat_history2, model_name, stored_data, prev_charts,contents):
     global streaming_done
     
     triggered_id = ctx.triggered_id
@@ -214,8 +216,11 @@ def update_chat(n_clicks, clear_clicks, n_intervals, user_message, chat_history,
     if triggered_id == "clear-button" and clear_clicks > 0:
         while not response_queue.empty():
             response_queue.get()
-        return chat_history, chat_history2, True, [],None
-        # return [], [{'role': 'system', 'content': 'Hi!'}], True, [],None  # Clear charts
+        return chat_history, chat_history2, True, [],None  # Clear charts, remove uploaded csv file but not previous chat
+    if triggered_id == "clear-chat-button" and clear_chat_clicks > 0:
+        while not response_queue.empty():
+            response_queue.get()
+        return [], [{'role': 'system', 'content': 'Hi!'}], True, [],None  # Clear everything(prev chat and remove uploaded csv file)
 
     # Handle new user message
     if triggered_id == "send-button" and n_clicks > 0 and user_message:
